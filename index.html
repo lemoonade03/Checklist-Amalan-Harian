@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#080C14" />
+  <meta name="description" content="Aplikasi 40 Amalan Harian — Wajib, Sunnah, Dianjurkan" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Amalan Harian" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>40 Amalan Harian</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #080C14; }
+    ::-webkit-scrollbar { width: 3px; height: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(220,170,40,0.25); border-radius: 4px; }
+    button { font-family: 'Georgia', serif; cursor: pointer; }
+    p { margin: 0; }
+
+    .fade-in { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    #install-banner {
+      display: none;
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(220,170,40,0.15); border: 1px solid rgba(220,170,40,0.4);
+      color: #F5D060; font-family: Georgia, serif; font-size: 13px;
+      padding: 10px 20px; border-radius: 30px; cursor: pointer;
+      z-index: 9999; backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    #install-banner:hover { background: rgba(220,170,40,0.25); }
+
+    .toast {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(62,168,106,0.2); border: 1px solid rgba(62,168,106,0.5);
+      color: #7FE0A0; font-family: Georgia, serif; font-size: 12px;
+      padding: 8px 18px; border-radius: 20px; z-index: 9999;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
+    }
+    @keyframes toastIn { from { opacity: 0; top: 10px; } to { opacity: 1; top: 20px; } }
+    @keyframes toastOut { to { opacity: 0; top: 10px; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <button id="install-banner">⬇️ Pasang di Home Screen</button>
+
+  <script>
+    // ── Service Worker ──────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // ── Install Prompt ──────────────────────────────────────────
+    let deferredPrompt;
+    const installBtn = document.getElementById('install-banner');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'block';
+    });
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') installBtn.style.display = 'none';
+      deferredPrompt = null;
+    });
+    window.addEventListener('appinstalled', () => { installBtn.style.display = 'none'; });
+
+    // ── Auto-reset checklist setiap hari ───────────────────────
+    const todayKey = new Date().toISOString().split('T')[0];
+    const savedDay = localStorage.getItem('amalan_day');
+    if (savedDay !== todayKey) {
+      localStorage.removeItem('amalan_checked');
+      localStorage.setItem('amalan_day', todayKey);
+    }
+  </script>
+
+  <!-- React 18 via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    // ─────────────────────────── DATA ───────────────────────────
+    const DATA = {
+      wajib: {
+        label: "Wajib", subtitle: "Fardhu 'Ain — Dosa jika ditinggalkan",
+        accent: "#E05A2B", bg: "#1A0800", icon: "🔴",
+        subGroups: [{
+          nama: "Shalat Fardhu Lima Waktu", icon: "🕌",
+          items: [
+            { id: 1, icon: "🌙", nama: "Shalat Subuh", waktu: "±04:30 – sebelum terbit matahari", detail: "2 rakaat fardhu. Waktu paling sempit — jangan sampai terlewat. JANGAN tidur setelah Subuh karena rezeki disebar antara Subuh dan terbit matahari.", latin: "Niat:\nUshalli fardhal-shubhi rak'ataini mustaqbilal-qiblati adaa-an lillaahi ta'aalaa.", fadilah: "Barang siapa shalat Subuh berjamaah, ia berada dalam jaminan Allah sepanjang hari penuh. (HR. Muslim)" },
+            { id: 2, icon: "☀️", nama: "Shalat Zuhur", waktu: "±12:00 – 13:30", detail: "4 rakaat fardhu. Dikerjakan setelah matahari tergelincir ke barat. Lebih utama di awal waktu dan berjamaah.", latin: "Niat:\nUshalli fardhal-zhuhri arba'a raka'aatin mustaqbilal-qiblati adaa-an lillaahi ta'aalaa.", fadilah: "Shalat lima waktu adalah penghapus dosa-dosa kecil di antara shalat satu ke shalat berikutnya. (HR. Muslim)" },
+            { id: 3, icon: "🌤️", nama: "Shalat Ashar", waktu: "±15:30 – sebelum Maghrib", detail: "4 rakaat fardhu. Disebut 'shalat wustha' yang Allah tekankan dalam Al-Quran. Jangan sampai terlewat walau sibuk apapun.", latin: "Niat:\nUshalli fardhal-'ashri arba'a raka'aatin mustaqbilal-qiblati adaa-an lillaahi ta'aalaa.", fadilah: "QS. Al-Baqarah: 238 — 'Peliharalah semua shalat dan shalat wustha (Ashar).' Barang siapa meninggalkan Ashar, amalnya terhapus. (HR. Bukhari)" },
+            { id: 4, icon: "🌆", nama: "Shalat Maghrib", waktu: "±18:00 – ±19:00", detail: "3 rakaat fardhu. Waktunya singkat — segera shalat begitu azan berkumandang, jangan ditunda sama sekali.", latin: "Niat:\nUshalli fardhal-maghribi tsalaatsa raka'aatin mustaqbilal-qiblati adaa-an lillaahi ta'aalaa.", fadilah: "Waktu Maghrib adalah salah satu waktu mustajab untuk berdoa. Segera manfaatkan setelah salam." },
+            { id: 5, icon: "🌃", nama: "Shalat Isya", waktu: "±19:30 – tengah malam", detail: "4 rakaat fardhu. Isya sebaiknya tidak ditunda terlalu larut. Setelah Isya, kurangi aktivitas sia-sia dan persiapkan Tahajud.", latin: "Niat:\nUshalli fardhal-'isyaa-i arba'a raka'aatin mustaqbilal-qiblati adaa-an lillaahi ta'aalaa.", fadilah: "Barang siapa shalat Isya berjamaah, seolah ia shalat malam separuhnya. (HR. Muslim)" }
+          ]
+        }]
+      },
+      sunnah: {
+        label: "Sunnah", subtitle: "Muakkad & Ghairu Muakkad — Pahala besar jika dikerjakan",
+        accent: "#3EA86A", bg: "#051208", icon: "🟢",
+        subGroups: [
+          {
+            nama: "Shalat Sunnah Rawatib", icon: "🕌",
+            items: [
+              { id: 6, icon: "⭐", nama: "Sunnah Fajar (Qabliyah Subuh)", waktu: "Sebelum Shalat Subuh", tag: "Muakkad", detail: "2 rakaat ringan sebelum Subuh. Sunnah paling ditekankan Nabi ﷺ. Cukup baca Al-Kafirun + Al-Ikhlas, tidak perlu panjang-panjang.", latin: "Niat:\nUshalli sunnatal-fajri rak'ataini qabliyyatan lillaahi ta'aalaa.\n\nRakaat 1: Al-Fatihah + Al-Kafirun\nRakaat 2: Al-Fatihah + Al-Ikhlas", fadilah: "Dua rakaat sunnah Fajar lebih baik dari dunia dan seisinya. (HR. Muslim)" },
+              { id: 7, icon: "🌟", nama: "Sunnah Rawatib Zuhur (4+2)", waktu: "Sebelum & sesudah Zuhur", tag: "Muakkad", detail: "4 rakaat qabliyah dan 2 rakaat ba'diyah Zuhur. Dikerjakan per 2 rakaat. Total 6 rakaat sunnah Zuhur.", latin: "Niat Qabliyah:\nUshalli sunnatal-zhuhri arba'a raka'aatin qabliyyatan lillaahi ta'aalaa.\n\nNiat Ba'diyah:\nUshalli sunnatal-zhuhri rak'ataini ba'diyyatan lillaahi ta'aalaa.", fadilah: "Barang siapa menjaga 4 rakaat sebelum Zuhur dan 4 sesudahnya, Allah haramkan api neraka baginya. (HR. Abu Dawud)" },
+              { id: 8, icon: "🌟", nama: "Sunnah Rawatib Maghrib (2)", waktu: "Sesudah Shalat Maghrib", tag: "Muakkad", detail: "2 rakaat ba'diyah Maghrib. Segera kerjakan setelah shalat Maghrib dan dzikir singkat. Jangan tunda hingga masuk Isya.", latin: "Niat:\nUshalli sunnatal-maghribi rak'ataini ba'diyyatan lillaahi ta'aalaa.", fadilah: "Sunnah rawatib Maghrib adalah yang paling dijaga Nabi ﷺ, tidak pernah ditinggalkan baik di rumah maupun perjalanan." },
+              { id: 9, icon: "🌟", nama: "Sunnah Rawatib Isya (2)", waktu: "Sesudah Shalat Isya", tag: "Muakkad", detail: "2 rakaat ba'diyah Isya. Kerjakan setelah Isya sebelum tidur. Penutup shalat sunnah harianmu.", latin: "Niat:\nUshalli sunnatal-'isyaa-i rak'ataini ba'diyyatan lillaahi ta'aalaa.", fadilah: "Barang siapa menjaga 12 rakaat sunnah rawatib sehari semalam, Allah bangunkan untuknya rumah di surga. (HR. Tirmidzi)" },
+              { id: 10, icon: "🌅", nama: "Shalat Dhuha (Min. 2 Rakaat)", waktu: "±07:00 – 11:00", tag: "Muakkad", detail: "Minimal 2 rakaat, maksimal 8 rakaat. Waktunya sejak ±35 menit setelah matahari terbit sampai menjelang Zuhur. Setelah salam baca Doa Dhuha.", latin: "Niat:\nUshalli sunnatadh-dhuhaa rak'ataini lillaahi ta'aalaa.\n\nDoa Dhuha:\nAllaahumma innadh-dhuhaa-a dhuhaa-uka, wal-bahaa-a bahaa-uka, wal-jamaala jamaaluka, wal-quwwata quwwatuka, wal-qudrota qudrotika, wal-'ishmata 'ishmatuka.\nAllaahumma in kaana rizqii fissamaa-i fa-anzilhu, wa in kaana fil-ardhi fa-akhrijhu, wa in kaana mu'siran fa-yassirhu, wa in kaana haraaman fa-thahhirhu, wa in kaana ba'iidan fa-qarribhu, bihaqqi dhuhaa-ika wa bahaa-ika wa jamaalika wa quwwatika wa qudrotika, aatinii maa atayta 'ibaadakash-shaalihiin.", fadilah: "Allah berfirman: 'Wahai anak Adam, shalatlah 4 rakaat di awal siang, niscaya Aku cukupkan kebutuhanmu hingga sore.' (HR. Tirmidzi)" },
+              { id: 11, icon: "🌙", nama: "Shalat Tahajud (Min. 2 Rakaat)", waktu: "02:00 – 04:00 (Sepertiga malam terakhir)", tag: "Muakkad", detail: "Tidur dulu lalu bangun di sepertiga malam terakhir. Minimal 2 rakaat hingga 8 rakaat. Setelah salam, luangkan waktu berdoa dengan sungguh-sungguh — ini waktu paling mustajab.", latin: "Niat:\nUshalli sunnatan-tahajjudi rak'ataini lillaahi ta'aalaa.\n\nDoa setelah Tahajud:\nAllaahumma lakal-hamdu anta qayyimus-samaawaati wal-ardhi wa man fiihin...\n(lanjutkan dengan doa rezeki dan hajatmu sendiri dengan bahasa apapun)", fadilah: "Allah turun ke langit dunia setiap sepertiga malam terakhir: 'Siapa yang berdoa, Aku kabulkan. Siapa yang meminta, Aku beri. Siapa yang minta ampun, Aku ampuni.' (HR. Bukhari)" },
+              { id: 12, icon: "🌙", nama: "Shalat Witir (Min. 1 Rakaat)", waktu: "Setelah Isya / penutup shalat malam", tag: "Muakkad", detail: "Minimal 1 rakaat, bisa 3 atau 11 rakaat. Jika berencana Tahajud, tunda Witir setelah Tahajud. Jika tidak, kerjakan setelah Isya. Ini penutup shalat malam.", latin: "Niat (1 rakaat):\nUshalli sunnatal-witri rak'atan lillaahi ta'aalaa.\n\nDoa Qunut Witir:\nAllaahummahdini fiiman hadayt, wa 'aafinii fiiman 'aafait, wa tawallanii fiiman tawallait, wa baarik lii fiimaa a'thayt, wa qinii syarra maa qadhait...", fadilah: "Jadikan shalat malammu terakhir adalah witir. (HR. Bukhari Muslim)" },
+              { id: 13, icon: "🙏", nama: "Shalat Taubat (2 Rakaat)", waktu: "Kapan saja — terutama setelah melakukan dosa", tag: "Sunnah", detail: "2 rakaat setelah melakukan dosa. Tidak perlu menunggu waktu tertentu. Setelah shalat, baca istighfar dan doa taubat dengan menyesal sungguh-sungguh.", latin: "Niat:\nUshalli sunnatan-taubati rak'ataini lillaahi ta'aalaa.\n\nDoa setelah shalat:\nAstaghfirullaah wa atuubu ilaih. (3x)\n\nAllaahumma innii zhalamtu nafsii zhulman katsiiran wa laa yaghfirudz-dzunuuba illaa anta, faghfirlii maghfiratan min 'indika warham-nii, innaka antal-ghafuurur-rahiim.", fadilah: "Tidaklah seorang hamba melakukan dosa lalu bangkit berwudhu, shalat 2 rakaat, dan beristighfar, kecuali Allah mengampuni dosanya. (HR. Abu Dawud)" },
+              { id: 14, icon: "🤲", nama: "Shalat Hajat (2 Rakaat)", waktu: "Saat ada hajat/kebutuhan mendesak", tag: "Sunnah", detail: "2 rakaat untuk memohon hajat tertentu. Sangat cocok saat masalah finansial atau urusan penting. Setelah salam, sampaikan hajatmu langsung kepada Allah dengan bahasa apapun.", latin: "Niat:\nUshalli sunnatal-haajati rak'ataini lillaahi ta'aalaa.\n\nDoa setelah shalat:\nLaa ilaaha illallaahul-haliimul-kariim, subhaanallaahi rabbil-'arsyil-'azhiim, alhamdu lillaahi rabbil-'aalamiin. Allaahumma innii as'aluka muujibaati rahmatika wa 'azaa-ima maghfiratika wal-ghaniimata min kulli birrin was-salaamata min kulli itsmin...", fadilah: "Barang siapa mempunyai hajat kepada Allah atau kepada manusia, hendaklah berwudhu lalu shalat 2 rakaat kemudian memuji Allah dan bershalawat, lalu berdoa. (HR. Tirmidzi)" },
+              { id: 15, icon: "✨", nama: "Shalat Awwabin (6 Rakaat)", waktu: "Antara Maghrib dan Isya", tag: "Sunnah", detail: "6 rakaat setelah shalat Maghrib (2 rakaat × 3 salam). Ini amalan para orang yang sering kembali kepada Allah (awwabin).", latin: "Niat (per 2 rakaat):\nUshalli sunnataal-awwabiina rak'ataini lillaahi ta'aalaa.\n\nBaca surah pendek apa saja di setiap rakaat.", fadilah: "Barang siapa shalat 6 rakaat setelah Maghrib tanpa membicarakan keburukan, pahalanya seperti ibadah 12 tahun. (HR. Tirmidzi)" }
+            ]
+          },
+          {
+            nama: "Amalan Sunnah Lainnya", icon: "💫",
+            items: [
+              { id: 16, icon: "📖", nama: "Tilawah Al-Quran (Min. 1 Halaman)", waktu: "Kapan saja — dianjurkan ba'da Subuh", tag: "Muakkad", detail: "Minimal 1 halaman per hari. Target ideal: 1 juz (30 hari = khatam). Jika belum bisa, mulai dari 5-10 ayat. Yang penting KONSISTEN setiap hari.", latin: "Doa sebelum membaca:\nA'uudzu billaahi minasy-syaithaanir-rajiim. Bismillaahir-rahmaanir-rahiim.\n\nDoa setelah membaca:\nAllaahummar-hamnii bil-qur'aan, waj'alhu lii imaaman wa nuuran wa hudaw wa rahmah.", fadilah: "Bacalah Al-Quran! Sesungguhnya ia akan datang pada Hari Kiamat sebagai pemberi syafaat bagi pembacanya. (HR. Muslim)" },
+              { id: 17, icon: "🌙", nama: "Puasa Senin & Kamis", waktu: "Setiap Senin dan Kamis", tag: "Muakkad", detail: "Niat dari malam atau pagi sebelum Zuhur asal belum makan/minum. Sahur dianjurkan meski sedikit. Buka dengan yang manis dan air putih.", latin: "Niat (pagi hari):\nNawaitu shauma yaumal-itsnaini/yaumal-khamiisi sunnatan lillaahi ta'aalaa.\n\nDoa buka puasa:\nAllaahumma laka shumtu wa bika aamantu wa 'alaika tawakkaltu wa 'alaa rizqika afthartu.", fadilah: "Nabi ﷺ bersabda: 'Amal dibawa naik pada Senin dan Kamis, maka aku suka amalku dibawa naik saat aku sedang berpuasa.' (HR. Tirmidzi)" },
+              { id: 18, icon: "💝", nama: "Sedekah Harian (Walau Sedikit)", waktu: "Kapan saja", tag: "Muakkad", detail: "Tidak harus besar. Bisa: transfer ke yatim/dhuafa, traktir teman, beri makan tetangga, atau bahkan senyum tulus. Yang penting RUTIN setiap hari.", latin: "Doa sebelum sedekah:\nBismilaah, Allaahumma taqabbal minnii.\n\nArtinya: 'Dengan nama Allah, ya Allah terimalah dariku.'", fadilah: "QS. Saba': 39 — 'Apa saja yang kamu infakkan, Allah akan menggantinya.' Sedekah di saat sempit adalah yang paling dahsyat balasannya." },
+              { id: 19, icon: "📱", nama: "Silaturahmi (Hubungi 1 Orang)", waktu: "Kapan saja — minimal 1x sehari", tag: "Muakkad", detail: "Minimal hubungi 1 orang per hari: orang tua, saudara, atau kerabat. Bisa via WA, telepon, atau kunjungi langsung. Prioritaskan orang tua dan keluarga dekat.", latin: "Salam:\nAssalaamu'alaikum wa rahmatullaahi wa barakaatuh.\n\nDoa untuk yang dihubungi:\nBaarakallaahu fiik.", fadilah: "Barang siapa ingin diluaskan rezekinya dan dipanjangkan umurnya, hendaklah ia menyambung tali silaturahmi. (HR. Bukhari)" },
+              { id: 20, icon: "👨‍👩‍👧", nama: "Berbakti kepada Orang Tua", waktu: "Setiap hari — minimal 1 hal", tag: "Muakkad", detail: "Lakukan minimal 1 hal untuk orang tua: bantu pekerjaan rumah, tanya kabar, atau cukup duduk menemani. Jangan pernah membentak atau berkata kasar.", latin: "Doa untuk orang tua:\nAllaahummaghfir lii wa liwaalidayya warhamhumaa kamaa rabbayaanii shaghiiraa.\n\nArtinya: 'Ya Allah ampuni aku dan kedua orang tuaku, sayangi mereka sebagaimana mereka menyayangiku waktu kecil.'", fadilah: "Ridha Allah ada pada ridha orang tua, dan murka Allah ada pada murka orang tua. (HR. Tirmidzi)" }
+            ]
+          }
+        ]
+      },
+      dianjurkan: {
+        label: "Dianjurkan", subtitle: "Mustahabb — Amalan pelengkap yang mendatangkan berkah",
+        accent: "#6A7FCA", bg: "#07091A", icon: "🔵",
+        subGroups: [
+          {
+            nama: "Dzikir Harian", icon: "💬",
+            items: [
+              { id: 21, icon: "🌅", nama: "Dzikir Pagi (Ba'da Subuh)", waktu: "Setelah Shalat Subuh", detail: "Duduk menghadap kiblat, baca dzikir pagi ±10-15 menit. Ini benteng dari gangguan setan sepanjang hari dan pembuka pintu rezeki.", latin: "1. Allaahumma bika ash-bahnaa wa bika amsaynaa wa bika nahyaa wa bika namuutu wa ilaikan-nusyuur.\n\n2. Subhaanallaahi wa bihamdihii. (100x)\n\n3. Laa ilaaha illallaah wahdahu laa syariikalah, lahul-mulku wa lahul-hamdu wa huwa 'alaa kulli syai-in qadiir. (10x)\n\n4. A'uudzu bikalimaatillaahit-taammati min syarri maa khalaq. (3x)", fadilah: "Dzikir pagi adalah benteng diri dari setan dan pembuka pintu rezeki sepanjang hari." },
+              { id: 22, icon: "🌇", nama: "Dzikir Petang (Ba'da Ashar)", waktu: "Ba'da Ashar – menjelang Maghrib", detail: "Baca antara Ashar dan Maghrib. Waktu ini sangat mustajab — jangan habiskan hanya untuk scroll medsos.", latin: "1. Allaahumma bika amsaynaa wa bika ash-bahnaa wa bika nahyaa wa bika namuutu wa ilaikaal-mashiir.\n\n2. Subhaanallaahi wa bihamdihii. (100x)\n\n3. A'uudzu bikalimaatillaahit-taammati min syarri maa khalaq. (3x)\n\n4. Allaahumma shalli wa sallim 'alaa nabiyyinaa Muhammad. (10x)", fadilah: "Dzikir petang menutup amal harian dengan sempurna dan melindungi dari keburukan malam." },
+              { id: 23, icon: "💬", nama: "Istighfar 100x Sehari", waktu: "Kapan saja — dibagi sepanjang hari", detail: "Tidak harus sekaligus. Bagi: 30x pagi, 30x siang, 40x malam. Boleh sambil berkendara, jalan, atau santai. Gunakan tasbih jika perlu.", latin: "Astaghfirullaah. (100x)\n\natau lebih lengkap:\nAstaghfirullaahal-'azhiim alladzii laa ilaaha illaa huwal-hayyul-qayyuum wa atuubu ilaih.", fadilah: "QS. Nuh: 10-12 — Istighfar menyebabkan Allah menurunkan hujan, menambah harta, menambah anak, dan menumbuhkan kebun-kebun." },
+              { id: 24, icon: "✨", nama: "Shalawat (Min. 100x Sehari)", waktu: "Kapan saja — sepanjang hari", detail: "Baca kapan saja: sambil memasak, berkendara, menunggu. Tidak ada batas waktu maupun jumlah maksimal.", latin: "Ringkas:\nShallallaahu 'alaihi wasallam.\n\nLengkap:\nAllaahumma shalli 'alaa Muhammad wa 'alaa aali Muhammad, kamaa shallaita 'alaa Ibraahiim wa 'alaa aali Ibraahiim, wa baarik 'alaa Muhammad wa 'alaa aali Muhammad kamaa baarakta 'alaa Ibraahiim wa 'alaa aali Ibraahiim fil-'aalamiina innaka hamiidun majiid.", fadilah: "Barang siapa bershalawat sekali, Allah memberinya 10 rahmat, menghapus 10 dosanya, dan mengangkatnya 10 derajat. (HR. Ahmad)" },
+              { id: 25, icon: "🛡️", nama: "Laa Hawla wa Laa Quwwata", waktu: "Kapan saja — terutama saat tertekan", detail: "Baca sebanyak-banyaknya terutama saat tertekan, cemas, atau tidak ada jalan keluar. Kalimat penyerahan diri total kepada Allah.", latin: "Laa hawla wa laa quwwata illaa billaahil-'aliyyil-'azhiim.\n\nArtinya: 'Tiada daya dan tiada kekuatan kecuali dengan pertolongan Allah Yang Maha Tinggi lagi Maha Agung.'", fadilah: "Nabi ﷺ menyebutnya sebagai kanzun min kunuz al-jannah — simpanan surga, dan penawar dari 99 macam penyakit, paling ringannya adalah kesedihan." },
+              { id: 26, icon: "📿", nama: "Tasbih Ba'da Shalat Fardhu", waktu: "Setelah setiap shalat fardhu (5x sehari)", detail: "Setelah salam dari shalat fardhu, baca tasbih, tahmid, dan takbir masing-masing 33x (total 99), kemudian tutup dengan kalimat tahlil.", latin: "Subhaanallaah. (33x)\nAlhamdulillaah. (33x)\nAllahu Akbar. (33x)\n\nPenutup (1x):\nLaa ilaaha illallaah wahdahu laa syariikalah, lahul-mulku wa lahul-hamdu wa huwa 'alaa kulli syai-in qadiir.", fadilah: "Barang siapa membaca tasbih 33x, tahmid 33x, takbir 33x setelah shalat, dan menutupnya dengan La ilaha illallah... diampuni dosa-dosanya walau sebanyak buih lautan. (HR. Muslim)" },
+              { id: 27, icon: "💎", nama: "Tahlil — Laa Ilaaha Illallaah", waktu: "Kapan saja — terutama saat sepi", detail: "Baca kalimat tauhid ini sebanyak-banyaknya. Sangat ringan di lisan namun sangat berat di timbangan. Target minimal 100x sehari.", latin: "Laa ilaaha illallaah wahdahu laa syariikalah, lahul-mulku wa lahul-hamdu wa huwa 'alaa kulli syai-in qadiir.\n\nArtinya: 'Tiada Tuhan selain Allah, tiada sekutu bagi-Nya, milik-Nya segala kerajaan dan pujian, Dia Mahakuasa atas segala sesuatu.'", fadilah: "Kalimat terbaik yang aku dan para Nabi sebelumku ucapkan adalah: Laa ilaaha illallaah wahdahu laa syariikalah. (HR. Tirmidzi)" }
+            ]
+          },
+          {
+            nama: "Bacaan Surat Tertentu", icon: "📖",
+            items: [
+              { id: 28, icon: "👑", nama: "Ayat Kursi Ba'da Shalat Fardhu", waktu: "Setelah setiap shalat fardhu (5x sehari)", detail: "Baca Ayat Kursi setelah tasbih ba'da shalat fardhu. Amalan sangat ringan namun pahalanya luar biasa — dilindungi Allah hingga shalat berikutnya.", latin: "Allahu laa ilaaha illaa huwal-hayyul-qayyuum, laa ta'khudzhuu sinatuw wa laa nawm, lahuu maa fissamaawaati wa maa fil-ardh, man dzalladzii yasyfa'u 'indahuu illaa bi-idznih, ya'lamu maa baina aidiihim wa maa khalfahum, wa laa yuhiithuuna bisyai-im min 'ilmihii illaa bimaa syaa-a, wasi'a kursiyyuhussamaawaati wal-ardha wa laa ya-uuduhuu hifzhuhumaa wa huwal-'aliyyul-'azhiim.", fadilah: "Barang siapa membaca Ayat Kursi setelah setiap shalat fardhu, tidak ada yang menghalanginya masuk surga kecuali kematian. (HR. An-Nasa'i)" },
+              { id: 29, icon: "🌙", nama: "Al-Ikhlas + Al-Falaq + An-Nas (3x)", waktu: "Pagi (ba'da Subuh) & Petang (ba'da Ashar)", detail: "Baca ketiga surat ini masing-masing 3x setiap pagi dan petang. Total 6 surat per sesi, sangat singkat namun melindungi dari segala keburukan.", latin: "Al-Ikhlas (3x):\nQul huwallahu ahad, Allaahush-shamad, lam yalid wa lam yuulad, wa lam yakul lahuu kufuwan ahad.\n\nAl-Falaq (3x):\nQul a'uudzu bi-rabbil-falaq, min syarri maa khalaq, wa min syarri ghaasiqin idzaa waqab, wa min syarrin-naffaatsaati fil-'uqad, wa min syarri haasidin idzaa hasad.\n\nAn-Nas (3x):\nQul a'uudzu bi-rabbin-naas, malikin-naas, ilahin-naas, min syarril-waswaasil-khannaas, alladzii yuwaswisu fii shuduurin-naas, minal-jinnati wan-naas.", fadilah: "Membaca ketiga surat ini 3x setiap pagi dan petang cukup untuk melindungimu dari segala sesuatu. (HR. Abu Dawud & Tirmidzi)" },
+              { id: 30, icon: "💰", nama: "Surah Al-Waqiah (Tiap Malam)", waktu: "Ba'da Maghrib atau sebelum tidur", detail: "Baca Surah Al-Waqiah (Surat ke-56, 96 ayat) setiap malam tanpa henti. Bisa dilihat dari mushaf. Jika belum hafal, hafal bertahap beberapa ayat per hari.", latin: "Dibuka dengan:\nBismillaahir-rahmaanir-rahiim.\nIdzaa waqa'atil-waaqi'ah, laisa liwaq'atihaa kaadzibah, khaafidhatur-raafi'ah...\n(Baca sampai selesai 96 ayat)", fadilah: "Ibnu Mas'ud r.a. meriwayatkan sabda Nabi ﷺ: 'Barang siapa membaca Surat Al-Waqiah setiap malam, ia tidak akan ditimpa kefakiran selamanya.'" },
+              { id: 31, icon: "🌟", nama: "Surah Al-Mulk (Sebelum Tidur)", waktu: "Sebelum tidur", detail: "Baca Surah Al-Mulk (Surat ke-67, 30 ayat) sebelum tidur. Surat ini disebut 'Al-Maani'ah' yang menghalangi azab kubur.", latin: "Dibuka dengan:\nBismillaahir-rahmaanir-rahiim.\nTabaarakalladzii biyadihil-mulku wa huwa 'alaa kulli syai-in qadiir...\n(Baca sampai selesai 30 ayat)", fadilah: "Surah Al-Mulk akan memberi syafaat kepada pembacanya dan menghalangi azab kubur sampai ia masuk surga. (HR. Tirmidzi)" },
+              { id: 32, icon: "📗", nama: "Surah Al-Kahfi (Setiap Jumat)", waktu: "Malam Jumat atau siang Jumat", detail: "Baca Surah Al-Kahfi (Surat ke-18, 110 ayat) setiap malam Jumat (Kamis malam) atau siang hari Jumat. Bisa dibagi beberapa sesi.", latin: "Dibuka dengan:\nBismillaahir-rahmaanir-rahiim.\nAlhamdu lillaahil-ladzii anzala 'alaa 'abdihil-kitaaba wa lam yaj'al lahuu 'iwajaa...\n(Baca sampai selesai 110 ayat)", fadilah: "Barang siapa membaca Surah Al-Kahfi pada hari Jumat, Allah menyinarinya dengan cahaya di antara dua Jumat. (HR. Al-Hakim)" }
+            ]
+          },
+          {
+            nama: "Doa-Doa Khusus", icon: "🤲",
+            items: [
+              { id: 33, icon: "☀️", nama: "Doa Pagi — Minta Rezeki Halal", waktu: "Ba'da Subuh", detail: "Doa pendek Nabi ﷺ setiap pagi. Resapi artinya: memohon ilmu bermanfaat, rezeki baik, dan amal yang diterima. Tiga perkara agung dalam satu doa.", latin: "Allaahumma innii as'aluka 'ilman naafi'an, wa rizqan thayyiban, wa 'amalan mutaqabbalan.\n\nArtinya: 'Ya Allah, aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik (halal dan berkah), dan amal yang diterima.'", fadilah: "Ini adalah doa yang Nabi ﷺ baca setiap pagi setelah shalat Subuh. (HR. Ibnu Majah)" },
+              { id: 34, icon: "🆘", nama: "Doa Nabi Yunus (Saat Sempit)", waktu: "Kapan saja — terutama saat dalam kesulitan", detail: "Baca minimal 40x atau sebanyak-banyaknya, terutama saat kesulitan keuangan atau tekanan mental berat. Ini adalah doa dari perut ikan paus.", latin: "Laa ilaaha illaa anta subhaanaka innii kuntu minazh-zhaalimiin.\n\nArtinya: 'Tiada Tuhan selain Engkau, Maha Suci Engkau. Sungguh aku termasuk orang-orang yang zalim.'", fadilah: "Tiada seorang Muslim pun yang berdoa dengan doa ini dalam suatu urusan, kecuali Allah mengabulkannya. (HR. Tirmidzi — hasan shahih)" },
+              { id: 35, icon: "💸", nama: "Doa Rezeki & Lunasi Hutang", waktu: "Setelah Tahajud atau Ba'da Subuh", detail: "Dua doa khusus masalah finansial. Doa pertama: berlindung dari kecemasan & hutang. Doa kedua: minta kecukupan dari yang halal.", latin: "Doa 1 (dari kecemasan & hutang):\nAllaahumma innii a'uudzu bika minal-hammi wal-huzni, wal-'ajzi wal-kasali, wal-bukhli wal-jubni, wa dhala'id-daini wa ghalabatir-rijaal.\n\nDoa 2 (rezeki halal):\nAllaahumma akfinii bihalaálika 'an haraamika wa aghnini bifadhlika 'amman siwaak.\n\nArtinya: 'Ya Allah, cukupkanlah aku dengan yang halal dari yang haram, dan kayakanlah aku dengan karunia-Mu dari selain-Mu.'", fadilah: "Doa kedua diriwayatkan: siapa membacanya, Allah lunaskan utangnya walau sebesar gunung Uhud. (HR. Tirmidzi)" },
+              { id: 36, icon: "🌙", nama: "Taubat Nasuha (Doa Khusus)", waktu: "Setelah Tahajud — waktu paling khusyu", detail: "Syarat taubat nasuha: (1) Menyesal sungguh-sungguh, (2) Berhenti dari dosa, (3) Bertekad tidak mengulangi. Lakukan dalam kesendirian, menangislah jika bisa.", latin: "Allaahumma innii zhalamtu nafsii zhulman katsiiran wa laa yaghfirudz-dzunuuba illaa anta, faghfirlii maghfiratan min 'indika warham-nii, innaka antal-ghafuurur-rahiim.\n\nArtinya: 'Ya Allah, aku telah banyak menzalimi diriku sendiri, dan tidak ada yang mengampuni dosa-dosa kecuali Engkau. Ampunilah aku dan rahmatilah aku. Sesungguhnya Engkau Maha Pengampun lagi Maha Penyayang.'", fadilah: "Allah sangat gembira dengan taubat hamba-Nya, melebihi kegembiraan seseorang yang menemukan kembali untanya yang hilang di padang pasir. (HR. Bukhari Muslim)" },
+              { id: 37, icon: "🏠", nama: "Doa Keluar & Masuk Rumah", waktu: "Setiap keluar dan masuk rumah", detail: "Amalan ringan yang sering diabaikan. Biasakan setiap kali meninggalkan dan memasuki rumah — bahkan ketika berangkat kerja atau kuliah.", latin: "Doa keluar rumah:\nBismilaah, tawakkaltu 'alallaah, wa laa hawla wa laa quwwata illaa billaah.\n\nDoa masuk rumah:\nBismilaah, wa lajnaa, wa bismilaah kharajnaa, wa 'alallaahi rabbinaa tawakkalnaa.", fadilah: "Jika seseorang membaca doa keluar rumah, dikatakan kepadanya: 'Kamu telah diberi petunjuk, dicukupkan, dan dijaga.' Setan pun menjauh. (HR. Abu Dawud)" },
+              { id: 38, icon: "🌟", nama: "Muhasabah & Syukur Malam", waktu: "Sebelum tidur", detail: "Sebelum tidur, renungkan 3 hal: (1) Nikmat apa yang Allah beri hari ini? (2) Dosa apa yang perlu ditaubati? (3) Target amalan besok. Tutup dengan istighfar.", latin: "Doa syukur:\nAllaahumma maa ash-baha bii min ni'matin aw bi-ahadin min khalqika faminka wahdaka laa syariika lak, falakal-hamdu wa lakasy-syukr.\n\nDoa tidur:\nBismikal-laahumma amuutu wa ahyaa.", fadilah: "QS. Ibrahim: 7 — 'Jika kamu bersyukur, pasti Aku tambahkan nikmat-Ku untukmu. Tetapi jika kamu kufur, sesungguhnya azab-Ku sangat pedih.'" }
+            ]
+          },
+          {
+            nama: "Adab & Kebiasaan Harian", icon: "🌱",
+            items: [
+              { id: 39, icon: "💧", nama: "Jaga Wudhu Sepanjang Hari", waktu: "Sepanjang hari", detail: "Usahakan selalu dalam keadaan wudhu. Jika batal, segera perbarui. Ini membuat kita selalu siap shalat, lebih tenang, dan terlindungi dari gangguan.", latin: "Doa setelah wudhu:\nAsyhadu allaa ilaaha illallaah wahdahu laa syariikalah, wa asyhadu anna muhammadan 'abduhu wa rasuuluh.\nAllaahumma-j'alnii minat-tawwaabiina waj'alnii minal-mutathahhariin.", fadilah: "Senantiasa berwudhu adalah sebagian dari iman. Dan wudhu menggugurkan dosa-dosa kecil. (HR. Muslim)" },
+              { id: 40, icon: "🍽️", nama: "Bismillah di Setiap Aktivitas", waktu: "Setiap memulai aktivitas", detail: "Biasakan membaca Bismillah setiap memulai apapun: makan, minum, bekerja, membuka laptop, bahkan membuka aplikasi HP. Ini menjadikan setiap aktivitas bernilai ibadah.", latin: "Bismillaahir-rahmaanir-rahiim.\n\nSingkat:\nBismilaah.\n\nJika lupa di awal, baca:\nBismilaahi awwalahu wa aakhirah.", fadilah: "Setiap urusan penting yang tidak dimulai dengan Bismillah, maka ia terputus (tidak mendapat berkah). (HR. Abu Dawud)" }
+            ]
+          }
+        ]
+      }
+    };
+
+    const KATEGORI_ORDER = ["wajib", "sunnah", "dianjurkan"];
+
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2100);
+    }
+
+    // ─────────────────────────── APP ────────────────────────────
+    function App() {
+      const allItems = KATEGORI_ORDER.flatMap(k => DATA[k].subGroups.flatMap(sg => sg.items));
+      const totalAll = allItems.length;
+
+      const [checked, setChecked] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('amalan_checked') || '{}'); } catch { return {}; }
+      });
+      const [expanded, setExpanded] = useState({});
+      const [activeTab, setActiveTab] = useState("semua");
+      const [expandedSub, setExpandedSub] = useState({});
+
+      useEffect(() => {
+        localStorage.setItem('amalan_checked', JSON.stringify(checked));
+      }, [checked]);
+
+      const done = Object.values(checked).filter(Boolean).length;
+      const persen = Math.round((done / totalAll) * 100);
+
+      const toggle = useCallback((id, nama) => {
+        setChecked(p => {
+          const next = { ...p, [id]: !p[id] };
+          if (next[id]) showToast('✓ ' + nama);
+          return next;
+        });
+      }, []);
+      const toggleExpand = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }));
+      const toggleSub = (key) => setExpandedSub(p => ({ ...p, [key]: p[key] === false ? true : false }));
+
+      const resetAll = () => {
+        if (window.confirm('Reset semua checklist hari ini?')) {
+          setChecked({});
+          localStorage.removeItem('amalan_checked');
+        }
+      };
+
+      const getMotivasi = () => {
+        if (persen === 0) return "Bismillah, mulai perjalananmu hari ini 🌱";
+        if (persen < 25) return "MasyaAllah, langkah pertama adalah yang terberat 💪";
+        if (persen < 50) return "Subhanallah, terus istiqomah! Allah melihatmu 🌟";
+        if (persen < 75) return "Alhamdulillah, setengah perjalanan sudah! 🔥";
+        if (persen < 100) return "MasyaAllah, hampir sempurna! Luar biasa ✨";
+        return "MasyaAllah Tabarakallah! Hari yang penuh berkah 🌙";
+      };
+
+      const counts = {
+        semua: totalAll,
+        wajib: DATA.wajib.subGroups.flatMap(s => s.items).length,
+        sunnah: DATA.sunnah.subGroups.flatMap(s => s.items).length,
+        dianjurkan: DATA.dianjurkan.subGroups.flatMap(s => s.items).length,
+      };
+
+      const renderItems = activeTab === "semua"
+        ? KATEGORI_ORDER.map(k => ({ key: k, ...DATA[k] }))
+        : [{ key: activeTab, ...DATA[activeTab] }];
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: "linear-gradient(160deg, #080C14 0%, #0A1208 45%, #14080A 100%)",
+          fontFamily: "'Georgia', serif", color: "#E0CCA0", paddingBottom: 80
+        }}>
+          {/* HEADER */}
+          <div style={{ padding: "32px 20px 0", textAlign: "center" }}>
+            <div style={{ fontSize: 12, color: "#B8900A", letterSpacing: 8, marginBottom: 8 }}>✦ ✦ ✦</div>
+            <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: "bold", color: "#F5D060", letterSpacing: 1, textShadow: "0 0 40px rgba(220,170,40,0.35)" }}>
+              40 Amalan Harian
+            </h1>
+            <p style={{ fontSize: 13, color: "#907050", margin: "0 0 18px" }}>Wajib · Sunnah · Dianjurkan</p>
+
+            {/* PROGRESS */}
+            <div style={{ background: "rgba(220,170,40,0.07)", border: "1px solid rgba(220,170,40,0.18)", borderRadius: 14, padding: "14px 18px", maxWidth: 420, margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: "#907050" }}>Progress Hari Ini</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 18, fontWeight: "bold", color: "#F5D060" }}>
+                    {done}<span style={{ fontSize: 12, color: "#907050" }}>/{totalAll}</span>
+                  </span>
+                  <button onClick={resetAll} style={{ fontSize: 10, color: "#504030", background: "transparent", border: "1px solid #302010", borderRadius: 8, padding: "2px 7px" }}>Reset</button>
+                </div>
+              </div>
+              <div style={{ height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+                <div style={{ height: "100%", width: `${persen}%`, background: "linear-gradient(90deg, #B87820, #F5D060)", borderRadius: 4, transition: "width 0.5s ease", boxShadow: "0 0 10px rgba(220,170,40,0.4)" }} />
+              </div>
+              <p style={{ fontSize: 11, color: "#C0A050", margin: 0, fontStyle: "italic" }}>{getMotivasi()}</p>
+            </div>
+
+            {/* LEGEND */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 14, marginBottom: 4, flexWrap: "wrap" }}>
+              {[["#E05A2B", "Wajib (5)"], ["#3EA86A", "Sunnah (15)"], ["#6A7FCA", "Dianjurkan (20)"]].map(([color, lbl]) => (
+                <div key={lbl} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                  <span style={{ fontSize: 11, color: "#807060" }}>{lbl}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* TABS */}
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "14px 16px 6px", scrollbarWidth: "none" }}>
+            {[["semua","Semua"],["wajib","🔴 Wajib"],["sunnah","🟢 Sunnah"],["dianjurkan","🔵 Dianjurkan"]].map(([k, lbl]) => (
+              <button key={k} onClick={() => setActiveTab(k)} style={{
+                flexShrink: 0, padding: "7px 14px", borderRadius: 20,
+                border: activeTab === k ? "1px solid rgba(220,170,40,0.6)" : "1px solid rgba(220,170,40,0.15)",
+                background: activeTab === k ? "rgba(220,170,40,0.15)" : "transparent",
+                color: activeTab === k ? "#F5D060" : "#706050",
+                fontSize: 12, transition: "all 0.2s"
+              }}>
+                {lbl} <span style={{ opacity: 0.5, fontSize: 10 }}>({counts[k]})</span>
+              </button>
+            ))}
+          </div>
+
+          {/* CONTENT */}
+          <div style={{ padding: "8px 14px 0" }}>
+            {renderItems.map(({ key, label, subtitle, accent, icon, subGroups }) => (
+              <div key={key} style={{ marginBottom: 24 }} className="fade-in">
+                {activeTab === "semua" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, paddingBottom: 10, borderBottom: `1px solid ${accent}33` }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `${accent}22`, border: `1px solid ${accent}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{icon}</div>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: "bold", color: accent }}>{label}</div>
+                      <div style={{ fontSize: 10, color: "#706050" }}>{subtitle}</div>
+                    </div>
+                    <div style={{ marginLeft: "auto", background: `${accent}22`, color: accent, border: `1px solid ${accent}33`, borderRadius: 12, padding: "2px 10px", fontSize: 11 }}>
+                      {subGroups.flatMap(s => s.items).filter(i => checked[i.id]).length}/{subGroups.flatMap(s => s.items).length}
+                    </div>
+                  </div>
+                )}
+
+                {subGroups.map((sg) => {
+                  const subKey = `${key}-${sg.nama}`;
+                  const isSubOpen = expandedSub[subKey] !== false;
+                  return (
+                    <div key={sg.nama} style={{ marginBottom: 12 }}>
+                      <div onClick={() => toggleSub(subKey)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: `${accent}0D`, border: `1px solid ${accent}22`, borderRadius: 10, cursor: "pointer", marginBottom: isSubOpen ? 8 : 0 }}>
+                        <span style={{ fontSize: 14 }}>{sg.icon}</span>
+                        <span style={{ flex: 1, fontSize: 13, color: "#C0A070", fontWeight: "bold" }}>{sg.nama}</span>
+                        <span style={{ fontSize: 11, color: accent, opacity: 0.7 }}>
+                          {sg.items.filter(i => checked[i.id]).length}/{sg.items.length}
+                        </span>
+                        <span style={{ color: accent, fontSize: 14, opacity: 0.6, transition: "transform 0.3s", transform: isSubOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+                      </div>
+
+                      {isSubOpen && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {sg.items.map((a) => {
+                            const isChecked = !!checked[a.id];
+                            const isExp = !!expanded[a.id];
+                            return (
+                              <div key={a.id} style={{ background: isChecked ? "rgba(220,170,40,0.04)" : `${DATA[key].bg}DD`, border: isChecked ? "1px solid rgba(220,170,40,0.3)" : `1px solid ${accent}28`, borderRadius: 12, overflow: "hidden", transition: "all 0.25s", opacity: isChecked ? 0.6 : 1 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }} onClick={() => toggleExpand(a.id)}>
+                                  <div onClick={(e) => { e.stopPropagation(); toggle(a.id, a.nama); }} style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: isChecked ? `2px solid ${accent}` : `2px solid ${accent}44`, background: isChecked ? accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}>
+                                    {isChecked && <span style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>✓</span>}
+                                  </div>
+                                  <span style={{ fontSize: 18, flexShrink: 0 }}>{a.icon}</span>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    {a.tag && (
+                                      <span style={{ fontSize: 10, background: `${accent}22`, color: accent, border: `1px solid ${accent}33`, padding: "1px 7px", borderRadius: 8, display: "inline-block", marginBottom: 3 }}>{a.tag}</span>
+                                    )}
+                                    <p style={{ margin: 0, fontSize: 13, fontWeight: "bold", color: isChecked ? "#706050" : "#E8D090", textDecoration: isChecked ? "line-through" : "none", lineHeight: 1.3 }}>{a.nama}</p>
+                                    <p style={{ margin: "2px 0 0", fontSize: 11, color: "#605040" }}>{a.waktu}</p>
+                                  </div>
+                                  <span style={{ color: accent, fontSize: 15, flexShrink: 0, transition: "transform 0.3s", transform: isExp ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+                                </div>
+
+                                {isExp && (
+                                  <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${accent}18` }}>
+                                    <p style={{ fontSize: 11, color: accent, margin: "12px 0 5px", fontWeight: "bold", letterSpacing: 1, textTransform: "uppercase" }}>📋 Cara Melakukan</p>
+                                    <p style={{ fontSize: 13, color: "#C0A880", margin: 0, lineHeight: 1.7 }}>{a.detail}</p>
+                                    {a.latin && (
+                                      <div style={{ marginTop: 10, background: `${accent}0C`, border: `1px solid ${accent}20`, borderRadius: 10, padding: "10px 12px" }}>
+                                        <p style={{ fontSize: 11, color: accent, margin: "0 0 5px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1 }}>🗣️ Bacaan / Niat</p>
+                                        <p style={{ fontSize: 12, color: "#E8D080", margin: 0, lineHeight: 2, fontStyle: "italic", whiteSpace: "pre-line" }}>{a.latin}</p>
+                                      </div>
+                                    )}
+                                    {a.fadilah && (
+                                      <div style={{ marginTop: 10, borderLeft: `3px solid ${accent}66`, padding: "7px 10px", borderRadius: "0 8px 8px 0", background: "rgba(200,150,30,0.05)" }}>
+                                        <p style={{ fontSize: 11, color: accent, margin: "0 0 3px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1 }}>💫 Keutamaan</p>
+                                        <p style={{ fontSize: 12, color: "#909070", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>{a.fadilah}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* FOOTER */}
+          <div style={{ textAlign: "center", padding: "20px 20px 0", color: "#504030", fontSize: 12 }}>
+            <div style={{ color: "#B8900A", fontSize: 18, marginBottom: 8 }}>✦ ✦ ✦</div>
+            <p style={{ margin: "0 0 4px", color: "#C8A050", fontStyle: "italic" }}>
+              "Sesungguhnya bersama kesulitan ada kemudahan." — QS. Al-Insyirah: 6
+            </p>
+            <p style={{ margin: 0, color: "#504030", fontSize: 11 }}>Reset otomatis setiap hari baru 🌙</p>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
